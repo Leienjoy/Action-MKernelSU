@@ -73,55 +73,49 @@ jobs:
          sed -i 's/ -dirty//g' kernel_platform/common/scripts/setlocalversion
          sed -i 's/ -dirty//g' kernel_platform/msm-kernel/scripts/setlocalversion
 
-      - name: Set up MKSU
-        if: github.event.inputs.MKSU_ENABLED == 'true'
-        run: |
-         cd kernel_workspace/kernel_platform
-         curl -LSs "https://raw.githubusercontent.com/5ec1cff/KernelSU/main/kernel/setup.sh" | bash -s main
-         cd KernelSU
-         KSU_VERSION=$(expr $(/usr/bin/git rev-list --count HEAD) "+" 10200)
-         echo "KSUVER=$KSU_VERSION" >> $GITHUB_ENV
-         sed -i "s/DKSU_VERSION=16/DKSU_VERSION=${KSU_VERSION}/" kernel/Makefile
-        
       - name: Set up susfs
-        if: github.event.inputs.SUSFS_ENABLED == 'true'
-        run: |
-           cd kernel_workspace
-           git clone https://gitlab.com/simonpunk/susfs4ksu.git -b gki-${{ github.event.inputs.ANDROID_VERSION }}-${{ github.event.inputs.KERNEL_VERSION }}
-           git clone https://github.com/TheWildJames/kernel_patches.git
-           cd kernel_platform
-           cp ../susfs4ksu/kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch ./KernelSU/
-           cp ../susfs4ksu/kernel_patches/50_add_susfs_in_gki-${{ github.event.inputs.ANDROID_VERSION }}-${{ github.event.inputs.KERNEL_VERSION }}.patch ./common/
-           cp ../susfs4ksu/kernel_patches/fs/* ./common/fs/
-           cp ../susfs4ksu/kernel_patches/include/linux/* ./common/include/linux/
+      if: github.event.inputs.MKSU_ENABLED == 'true'
+      run: |
+    set -e  # 遇到错误立即退出
+    set -x  # 打印执行的命令，方便调试
 
-           # 修改补丁文件路径
-           sed -i 's/KernelSU-Next/KernelSU/g' ./KernelSU/10_enable_susfs_for_ksu.patch
-           sed -i 's/KernelSU-Next/KernelSU/g' ../kernel_patches/apk_sign.c_fix.patch
-           sed -i 's/KernelSU-Next/KernelSU/g' ../kernel_patches/core_hook.c_fix.patch
-           sed -i 's/KernelSU-Next/KernelSU/g' ../kernel_patches/selinux.c_fix.patch
+    cd kernel_workspace
+    git clone https://gitlab.com/simonpunk/susfs4ksu.git -b gki-${{ github.event.inputs.ANDROID_VERSION }}-${{ github.event.inputs.KERNEL_VERSION }}
+    git clone https://github.com/TheWildJames/kernel_patches.git
+    cd kernel_platform
 
-           # Apply patches
-           cd ./KernelSU
-           patch -p1 --fuzz=3 < 10_enable_susfs_for_ksu.patch || true
-           #patch -p1 --forward < 10_enable_susfs_for_ksu.patch
-           cd ../common
-           patch -p1 < 50_add_susfs_in_gki-${{ github.event.inputs.ANDROID_VERSION }}-${{ github.event.inputs.KERNEL_VERSION }}.patch || true
-           cp ../../kernel_patches/69_hide_stuff.patch ./
-           patch -p1 -F 3 < 69_hide_stuff.patch
-           git add -A && git commit -a -m "BUILD Kernel"
-           cd ..
-           cd ./msm-kernel && git add -A && git commit -a -m "BUILD Kernel"
-           cd ..
-             
-           cp ../kernel_patches/apk_sign.c_fix.patch ./
-           patch -p1 -F 3 < apk_sign.c_fix.patch
-             
-           cp ../kernel_patches/core_hook.c_fix.patch ./
-           patch -p1 --fuzz=3 < ./core_hook.c_fix.patch
-           
-           cp ../kernel_patches/selinux.c_fix.patch ./
-           patch -p1 -F 3 < selinux.c_fix.patch
+    cp ../susfs4ksu/kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch ./KernelSU/
+    cp ../susfs4ksu/kernel_patches/50_add_susfs_in_gki-${{ github.event.inputs.ANDROID_VERSION }}-${{ github.event.inputs.KERNEL_VERSION }}.patch ./common/
+    cp ../susfs4ksu/kernel_patches/fs/* ./common/fs/
+    cp ../susfs4ksu/kernel_patches/include/linux/* ./common/include/linux/
+
+    # 修改补丁文件路径
+    sed -i 's/KernelSU-Next/KernelSU/g' ./KernelSU/10_enable_susfs_for_ksu.patch
+    sed -i 's/KernelSU-Next/KernelSU/g' ../kernel_patches/apk_sign.c_fix.patch
+    sed -i 's/KernelSU-Next/KernelSU/g' ../kernel_patches/core_hook.c_fix.patch
+    sed -i 's/KernelSU-Next/KernelSU/g' ../kernel_patches/selinux.c_fix.patch
+
+    # Apply patches
+    cd ./KernelSU
+    patch -p1 --fuzz=3 --ignore-whitespace < 10_enable_susfs_for_ksu.patch || { echo "Failed to apply 10_enable_susfs_for_ksu.patch"; exit 1; }
+    #patch -p1 --forward < 10_enable_susfs_for_ksu.patch
+    cd ../common
+    patch -p1 --ignore-whitespace < 50_add_susfs_in_gki-${{ github.event.inputs.ANDROID_VERSION }}-${{ github.event.inputs.KERNEL_VERSION }}.patch || { echo "Failed to apply 50_add_susfs_in_gki patch"; exit 1; }
+    cp ../../kernel_patches/69_hide_stuff.patch ./
+    patch -p1 -F 3 < 69_hide_stuff.patch || { echo "Failed to apply 69_hide_stuff.patch"; exit 1; }
+    git add -A && git commit -a -m "BUILD Kernel"
+    cd ..
+    cd ./msm-kernel && git add -A && git commit -a -m "BUILD Kernel"
+    cd ..
+
+    cp ../kernel_patches/apk_sign.c_fix.patch ./
+    patch -p1 -F 3 < apk_sign.c_fix.patch || { echo "Failed to apply apk_sign.c_fix.patch"; exit 1; }
+
+    cp ../kernel_patches/core_hook.c_fix.patch ./
+    patch -p1 --fuzz=3 < ./core_hook.c_fix.patch || { echo "Failed to apply core_hook.c_fix.patch"; exit 1; }
+
+    cp ../kernel_patches/selinux.c_fix.patch ./
+    patch -p1 -F 3 < selinux.c_fix.patch || { echo "Failed to apply selinux.c_fix.patch"; exit 1; }
            
       - name: Build kernel
         run: |
