@@ -1,4 +1,4 @@
-name: Build KernelSU Next
+name: Build MKSU
 on:
   workflow_dispatch:
     inputs:
@@ -22,8 +22,8 @@ on:
         description: "内核版本"
         required: true
         default: '6.1'
-      KSUNEXT_ENABLED:
-        description: "添加 KSU Next"
+      MKSU_ENABLED:
+        description: "添加 MKSU"
         required: true
         type: boolean
         default: false
@@ -73,15 +73,15 @@ jobs:
          sed -i 's/ -dirty//g' kernel_platform/common/scripts/setlocalversion
          sed -i 's/ -dirty//g' kernel_platform/msm-kernel/scripts/setlocalversion
 
-      - name: Set up KernelSU Next
-        if: github.event.inputs.KSUNEXT_ENABLED == 'true'
+      - name: Set up MKSU
+        if: github.event.inputs.MKSU_ENABLED == 'true'
         run: |
          cd kernel_workspace/kernel_platform
-         curl -LSs "https://raw.githubusercontent.com/rifsxd/KernelSU-Next/next/kernel/setup.sh" | bash -s next
-         cd KernelSU-Next
-         KSU_VERSION=$(expr $(/usr/bin/git rev-list --count HEAD) "+" 10200)
-         echo "KSUVER=$KSU_VERSION" >> $GITHUB_ENV
-         sed -i "s/DKSU_VERSION=16/DKSU_VERSION=${KSU_VERSION}/" kernel/Makefile
+         curl -LSs "https://raw.githubusercontent.com/5ec1cff/KernelSU/main/kernel/setup.sh" | bash -s next
+         cd MKSU
+         MKSU_VERSION=$(expr $(/usr/bin/git rev-list --count HEAD) "+" 10200)
+         echo "MKSUVER=$MKSU_VERSION" >> $GITHUB_ENV
+         sed -i "s/DKSU_VERSION=16/DKSU_VERSION=${MKSU_VERSION}/" kernel/Makefile
         
       - name: Set up susfs
         if: github.event.inputs.SUSFS_ENABLED == 'true'
@@ -90,13 +90,13 @@ jobs:
            git clone https://gitlab.com/simonpunk/susfs4ksu.git -b gki-${{ github.event.inputs.ANDROID_VERSION }}-${{ github.event.inputs.KERNEL_VERSION }}
            git clone https://github.com/TheWildJames/kernel_patches.git
            cd kernel_platform
-           cp ../susfs4ksu/kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch ./KernelSU-Next/
+           cp ../susfs4ksu/kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch ./MKSU/
            cp ../susfs4ksu/kernel_patches/50_add_susfs_in_gki-${{ github.event.inputs.ANDROID_VERSION }}-${{ github.event.inputs.KERNEL_VERSION }}.patch ./common/
            cp ../susfs4ksu/kernel_patches/fs/* ./common/fs/
            cp ../susfs4ksu/kernel_patches/include/linux/* ./common/include/linux/
 
            # Apply patches
-           cd ./KernelSU-Next
+           cd ./MKSU
            patch -p1 --forward < 10_enable_susfs_for_ksu.patch || true
            cd ../common
            patch -p1 < 50_add_susfs_in_gki-${{ github.event.inputs.ANDROID_VERSION }}-${{ github.event.inputs.KERNEL_VERSION }}.patch || true
@@ -130,11 +130,11 @@ jobs:
       - name: Upload AnyKernel3
         uses: actions/upload-artifact@v4
         with:
-         name: AnyKernel3_KernelSU_Next_${{ env.KSUVER }}_${{ github.event.inputs.FEIL }}
+         name: AnyKernel3_MKSU_${{ env.MKSUVER }}_${{ github.event.inputs.FEIL }}
          path: ./AnyKernel3/*
          
       - name: Upload Image
         uses: actions/upload-artifact@v4
         with:
-         name: Image_KernelSU_Next_${{ env.KSUVER }}_${{ github.event.inputs.FEIL }}
+         name: Image_MKSU_${{ env.MKSUVER }}_${{ github.event.inputs.FEIL }}
          path: kernel_workspace/kernel_platform/out/msm-kernel-${{ github.event.inputs.CPUD }}-gki/dist/Image
