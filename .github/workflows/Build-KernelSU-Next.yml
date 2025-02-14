@@ -1,133 +1,218 @@
-name: Build MKSU
+# 工作流名称，用于标识此 GitHub Actions 工作流
+name: 构建 MKSU
+
+# 触发工作流的条件，这里设置为手动触发
 on:
+  # 手动触发配置
   workflow_dispatch:
+    # 手动触发时需要输入的参数
     inputs:
+      # CPU 相关分支信息
       CPU:
+        # 参数描述，说明该参数是分支
         description: "分支"
+        # 是否为必填参数
         required: true
+        # 参数的默认值
         default: 'sm8650'
+      # 配置文件相关信息
       FEIL:
+        # 参数描述，说明该参数是配置文件
         description: "配置文件"
         required: true
         default: 'oneplus_ace3_pro_v'
+      # 处理器代号信息
       CPUD:
+        # 参数描述，说明该参数是处理器代号
         description: "处理器代号"
         required: true
         default: 'pineapple'
+      # 内核安卓版本信息
       ANDROID_VERSION:
+        # 参数描述，说明该参数是内核安卓版本
         description: "内核安卓版本"
         required: true
         default: 'android14'
+      # 内核版本信息
       KERNEL_VERSION:
+        # 参数描述，说明该参数是内核版本
         description: "内核版本"
         required: true
         default: '6.1'
+      # 是否添加 MKSU 的开关
       MKSU_ENABLED:
+        # 参数描述，说明该参数用于控制是否添加 MKSU
         description: "添加 MKSU"
         required: true
+        # 参数类型为布尔型
         type: boolean
         default: false
+      # 是否添加 SUSFS 的开关
       SUSFS_ENABLED:
+        # 参数描述，说明该参数用于控制是否添加 SUSFS
         description: "添加 SUSFS"
         required: true
         type: boolean
         default: false
+
+# 工作流中的作业配置
 jobs:
+  # 作业名称为 build
   build:
+    # 作业运行的环境，这里使用最新的 Ubuntu 系统
     runs-on: ubuntu-latest
-    
+    # 作业的步骤配置
     steps:
-      - name: Maximize build space
+      # 步骤名称，用于最大化构建空间
+      - name: 最大化构建空间
+        # 使用的 GitHub Actions 工具
         uses: easimon/maximize-build-space@master
+        # 传递给工具的参数
         with:
+          # 根分区保留的空间大小（MB）
           root-reserve-mb: 8192
+          # 临时分区保留的空间大小（MB）
           temp-reserve-mb: 2048
+          # 是否移除 .NET 相关组件
           remove-dotnet: 'true'
+          # 是否移除 Android 相关组件
           remove-android: 'true'
+          # 是否移除 Haskell 相关组件
           remove-haskell: 'true'
+          # 是否移除 CodeQL 相关组件
           remove-codeql: 'true'
-          
-      - name: Configure Git
-        run: |
-         git config --global user.name "build"
-         git config --global user.email "3436378798@qq.com"
 
-      - name: Install dependencies
+      # 步骤名称，用于配置 Git 的用户信息
+      - name: 配置 Git
+        # 要执行的脚本命令
         run: |
-         sudo apt update && sudo apt upgrade -y
-         sudo apt install -y python3 git curl
+          # 设置全局的 Git 用户名
+          git config --global user.name "build"
+          # 设置全局的 Git 用户邮箱
+          git config --global user.email "226811505@qq.com"
 
-      - name: Install repo tool
+      # 步骤名称，用于安装依赖软件包
+      - name: 安装依赖
         run: |
-         curl https://storage.googleapis.com/git-repo-downloads/repo > ~/repo
-         chmod a+x ~/repo
-         sudo mv ~/repo /usr/local/bin/repo
+          # 更新软件包列表并升级已安装的软件包
+          sudo apt update && sudo apt upgrade -y
+          # 安装 Python3、Git 和 Curl 软件包
+          sudo apt install -y python3 git curl
 
-      - name: Initialize repo 和 sync
+      # 步骤名称，用于安装 repo 工具
+      - name: 安装 repo 工具
         run: |
-         mkdir kernel_workspace && cd kernel_workspace
-         repo init -u https://github.com/OnePlusOSS/kernel_manifest.git -b refs/heads/oneplus/${{ github.event.inputs.CPU }} -m ${{ github.event.inputs.FEIL }}.xml --depth=1
-         repo sync
-         rm kernel_platform/common/android/abi_gki_protected_exports_* || echo "No protected exports!"
-         rm kernel_platform/msm-kernel/android/abi_gki_protected_exports_* || echo "No protected exports!"
-         sed -i 's/ -dirty//g' kernel_platform/common/scripts/setlocalversion
-         sed -i 's/ -dirty//g' kernel_platform/msm-kernel/scripts/setlocalversion
+          # 从指定 URL 下载 repo 脚本并保存到用户主目录
+          curl https://storage.googleapis.com/git-repo-downloads/repo > ~/repo
+          # 为 repo 脚本添加可执行权限
+          chmod a+x ~/repo
+          # 将 repo 脚本移动到系统可执行路径
+          sudo mv ~/repo /usr/local/bin/repo
 
-      - name: Set up MKSU
+      # 步骤名称，用于初始化 repo 并同步代码
+      - name: 初始化 repo 和同步代码
+        run: |
+          # 创建一个名为 kernel_workspace 的目录并进入该目录
+          mkdir kernel_workspace && cd kernel_workspace
+          # 使用 repo 初始化代码仓库，指定仓库地址、分支和配置文件
+          repo init -u https://github.com/OnePlusOSS/kernel_manifest.git -b refs/heads/oneplus/${{ github.event.inputs.CPU }} -m ${{ github.event.inputs.FEIL }}.xml --depth=1
+          # 同步代码仓库
+          repo sync
+          # 尝试删除指定目录下的文件，如果文件不存在则输出提示信息
+          rm kernel_platform/common/android/abi_gki_protected_exports_* || echo "No protected exports!"
+          rm kernel_platform/msm-kernel/android/abi_gki_protected_exports_* || echo "No protected exports!"
+          # 修改脚本文件中的版本信息
+          sed -i 's/ -dirty//g' kernel_platform/common/scripts/setlocalversion
+          sed -i 's/ -dirty//g' kernel_platform/msm-kernel/scripts/setlocalversion
+
+      # 步骤名称，用于设置 MKSU
+      - name: 设置 MKSU
+        # 只有当 MKSU_ENABLED 参数为 true 时才执行该步骤
         if: github.event.inputs.MKSU_ENABLED == 'true'
         run: |
-         cd kernel_workspace/kernel_platform
-         curl -LSs "https://raw.githubusercontent.com/5ec1cff/KernelSU/main/kernel/setup.sh" | bash -s main
-         cd KernelSU
-         KSU_VERSION=$(expr $(/usr/bin/git rev-list --count HEAD) "+" 10200)
-         echo "KSUVER=$KSU_VERSION" >> $GITHUB_ENV
-         sed -i "s/DKSU_VERSION=16/DKSU_VERSION=${KSU_VERSION}/" kernel/Makefile
-        
-            - name: Set up susfs
-            if: github.event.inputs.SUSFS_ENABLED == 'true'
-            run: |
-           cd kernel_workspace
-           git clone https://gitlab.com/simonpunk/susfs4ksu.git -b gki-android14-6.1
-           git clone https://github.com/TanakaLun/kernel_patches4mksu.git
-           cd kernel_platform
-           cp ../susfs4ksu/kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch ./KernelSU/
-           cp ../kernel_patches4mksu/mksu_susfs.patch ./KernelSU/
-           cp ../susfs4ksu/kernel_patches/50_add_susfs_in_gki-android14-6.1.patch ./common/
-           cp ../susfs4ksu/kernel_patches/fs/* ./common/fs/
-           cp ../susfs4ksu/kernel_patches/include/linux/* ./common/include/linux/
+          # 进入 kernel_workspace/kernel_platform 目录
+          cd kernel_workspace/kernel_platform
+          # 下载并执行 KernelSU 的设置脚本
+          curl -LSs "https://raw.githubusercontent.com/5ec1cff/KernelSU/main/kernel/setup.sh" | bash -s main
+          # 进入 KernelSU 目录
+          cd KernelSU
+          # 计算 KSU 版本号
+          KSU_VERSION=$(expr $(/usr/bin/git rev-list --count HEAD) "+" 10200)
+          # 将 KSU 版本号写入环境变量
+          echo "KSUVER=$KSU_VERSION" >> $GITHUB_ENV
+          # 修改 Makefile 文件中的版本信息
+          sed -i "s/DKSU_VERSION=16/DKSU_VERSION=${KSU_VERSION}/" kernel/Makefile
 
-           # Apply patches
-           cd ./KernelSU
-           patch -p1 --forward < 10_enable_susfs_for_ksu.patch || true
-           patch -p1 --forward < mksu_susfs.patch || true
-           cd ../common
-           patch -p1 < 50_add_susfs_in_gki-android14-6.1.patch || true
-           cp ../../kernel_patches4mksu/69_hide_stuff.patch ./
-           patch -p1 -F 3 < 69_hide_stuff.patch
-           git add -A && git commit -a -m "BUILD Kernel"
-           cd ..
-           cd ./msm-kernel && git add -A && git commit -a -m "BUILD Kernel"
-           cd ..
-           
-      - name: Build kernel
+      # 步骤名称，用于设置 SUSFS
+      - name: 设置 SUSFS
+        # 只有当 SUSFS_ENABLED 参数为 true 时才执行该步骤
+        if: github.event.inputs.SUSFS_ENABLED == 'true'
         run: |
-         cd kernel_workspace
-         ./kernel_platform/oplus/build/oplus_build_kernel.sh ${{ github.event.inputs.CPUD }} gki
-         
-      - name: Make AnyKernel3
-        run: |
-         git clone https://github.com/Kernel-SU/AnyKernel3 --depth=1
-         rm -rf ./AnyKernel3/.git
-         cp kernel_workspace/kernel_platform/out/msm-kernel-${{ github.event.inputs.CPUD }}-gki/dist/Image ./AnyKernel3/
+          # 进入 kernel_workspace 目录
+          cd kernel_workspace
+          # 克隆 susfs4ksu 仓库
+          git clone https://gitlab.com/simonpunk/susfs4ksu.git -b gki-android14-6.1
+          # 克隆 kernel_patches4mksu 仓库
+          git clone https://github.com/TanakaLun/kernel_patches4mksu.git
+          # 进入 kernel_platform 目录
+          cd kernel_platform
+          # 复制相关补丁文件到指定目录
+          cp ../susfs4ksu/kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch ./KernelSU/
+          cp ../kernel_patches4mksu/mksu_susfs.patch ./KernelSU/
+          cp ../susfs4ksu/kernel_patches/50_add_susfs_in_gki-android14-6.1.patch ./common/
+          cp ../susfs4ksu/kernel_patches/fs/* ./common/fs/
+          cp ../susfs4ksu/kernel_patches/include/linux/* ./common/include/linux/
 
-      - name: Upload AnyKernel3
+          # 应用补丁
+          cd ./KernelSU
+          # 应用 10_enable_susfs_for_ksu.patch 补丁，如果失败则忽略
+          patch -p1 --forward < 10_enable_susfs_for_ksu.patch || true
+          # 应用 mksu_susfs.patch 补丁，如果失败则忽略
+          patch -p1 --forward < mksu_susfs.patch || true
+          cd ../common
+          # 应用 50_add_susfs_in_gki-android14-6.1.patch 补丁，如果失败则忽略
+          patch -p1 < 50_add_susfs_in_gki-android14-6.1.patch || true
+          # 复制 69_hide_stuff.patch 补丁文件到当前目录
+          cp ../../kernel_patches4mksu/69_hide_stuff.patch ./
+          # 应用 69_hide_stuff.patch 补丁，设置宽容度为 3
+          patch -p1 -F 3 < 69_hide_stuff.patch
+          # 添加所有更改到 Git 暂存区并提交
+          git add -A && git commit -a -m "BUILD Kernel"
+          cd ..
+          cd ./msm-kernel && git add -A && git commit -a -m "BUILD Kernel"
+          cd ..
+
+      # 步骤名称，用于构建内核
+      - name: 构建内核
+        run: |
+          # 进入 kernel_workspace 目录
+          cd kernel_workspace
+          # 执行内核构建脚本
+          ./kernel_platform/oplus/build/oplus_build_kernel.sh ${{ github.event.inputs.CPUD }} gki
+
+      # 步骤名称，用于创建 AnyKernel3
+      - name: 创建 AnyKernel3
+        run: |
+          # 克隆 AnyKernel3 仓库，深度为 1
+          git clone https://github.com/Kernel-SU/AnyKernel3 --depth=1
+          # 删除 AnyKernel3 仓库的 .git 目录
+          rm -rf ./AnyKernel3/.git
+          # 复制内核镜像文件到 AnyKernel3 目录
+          cp kernel_workspace/kernel_platform/out/msm-kernel-${{ github.event.inputs.CPUD }}-gki/dist/Image ./AnyKernel3/
+
+      # 步骤名称，用于上传 AnyKernel3 工件
+      - name: 上传 AnyKernel3
+        # 使用上传工件的 GitHub Actions 工具
         uses: actions/upload-artifact@v4
         with:
-         name: AnyKernel3_MKSU_${{ env.KSUVER }}_${{ github.event.inputs.FEIL }}
-         path: ./AnyKernel3/*
-         
-      - name: Upload Image
+          # 工件的名称
+          name: AnyKernel3_MKSU_${{ env.KSUVER }}_${{ github.event.inputs.FEIL }}
+          # 要上传的文件路径
+          path: ./AnyKernel3/*
+
+      # 步骤名称，用于上传内核镜像工件
+      - name: 上传内核镜像
         uses: actions/upload-artifact@v4
         with:
-         name: Image_MKSU_${{ env.KSUVER }}_${{ github.event.inputs.FEIL }}
-         path: kernel_workspace/kernel_platform/out/msm-kernel-${{ github.event.inputs.CPUD }}-gki/dist/Image
+          name: Image_MKSU_${{ env.KSUVER }}_${{ github.event.inputs.FEIL }}
+          path: kernel_workspace/kernel_platform/out/msm-kernel-${{ github.event.inputs.CPUD }}-gki/dist/Image
